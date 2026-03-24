@@ -13,10 +13,7 @@ mod tests {
         let runner = Gemma3TextRunner::default().await.unwrap();
         let answer = runner
             .get_lm_response(TextLmRequest {
-                messages: vec![(
-                    MessageRole::User,
-                    "What is the capital of France?".to_string(),
-                )],
+                messages: vec![(MessageRole::User, "What is the capital of France?")],
                 ..Default::default()
             })
             .unwrap();
@@ -26,20 +23,16 @@ mod tests {
     #[tokio::test]
     async fn test_vlm() {
         let runner = Gemma3VisionRunner::default().await.unwrap();
+        let eiffel_tower_im =
+            image::load_from_memory(include_bytes!("../assets/eiffel-tower.jpg")).unwrap();
         let answer = runner
             .get_vlm_response(VisionLmRequest {
                 messages: vec![
                     (
                         MessageRole::User,
-                        ImageOrText::Text("Which city is this building in?".into()),
+                        ImageOrText::Text("Which city is this building in?"),
                     ),
-                    (
-                        MessageRole::User,
-                        ImageOrText::Image(
-                            image::load_from_memory(include_bytes!("../assets/eiffel-tower.jpg"))
-                                .unwrap(),
-                        ),
-                    ),
+                    (MessageRole::User, ImageOrText::Image(&eiffel_tower_im)),
                 ],
                 ..Default::default()
             })
