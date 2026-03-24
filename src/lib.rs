@@ -1,6 +1,6 @@
 pub mod error;
 mod runner;
-mod sample;
+pub mod sample;
 
 pub use runner::*;
 

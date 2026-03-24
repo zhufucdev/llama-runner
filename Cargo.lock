@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "llama-runner"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "hf-hub",
