@@ -2,6 +2,13 @@
 name = "llama-runner"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+description = "A straightforward Rust library for running llama.cpp models locally on device"
+homepage = "https://github.com/zhufucdev/llama-runner"
+repository = "https://github.com/zhufucdev/llama-runner"
+readme = "README.md"
+keywords = ["llama", "language-model", "llm", "ai"]
+categories = ["text-processing", "science"]
 
 [dependencies]
 encoding_rs = "0.8"
