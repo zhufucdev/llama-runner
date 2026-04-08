@@ -43,7 +43,36 @@ let answer = runner
 assert!(answer.contains("Paris"));
 ```
 
+```rust
+// MCP support is bare minimum
+let runner = Gemma3VisionRunner::default().await.unwrap();
+let call_me_tool = Tool::new(
+    "call_me",
+    "This is a test for your MCP tool calling capability. You SHOULD call this tool once seeing it.",
+    schema_for_type::<rmcp::model::EmptyObject>(),
+);
+let answer = runner
+    .get_vlm_response(GenericVisionLmRequest {
+        // The default `VisionLmRequest` uses `ModelChatTemplate`.
+        // Here you want to use something more generic.
+        // You may have to implement your own template
+        // for models other than the Qwen 3 series
+        tmpl: Qwen3ChatTemplate::new([call_me_tool]),
+        messages: vec![(
+            MessageRole::User,
+            ImageOrText::Text("Please call the `call_me` tool to continue"),
+        )],
+        ..Default::default()
+    })
+    .unwrap();
+// Need to parse model tool call yourself
+assert!(answer.contains("<tool_call>"));
+assert!(answer.contains("<function=call_me>"));
+```
+
 ## Credits
 
 - [llama-cpp-rs](https://github.com/utilityai/llama-cpp-rs/tree/main):
   this library is bascially a higher level wrapper around it
+- [minijinja](https://github.com/mitsuhiko/minijinja): Qwen3 chat template implementation
+- [rmcp](https://github.com/modelcontextprotocol/rust-sdk/): syndication

@@ -13,7 +13,7 @@ use llama_cpp_2::{
     context::{LlamaContext, params::LlamaContextParams},
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
-    model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel},
+    model::{AddBos, LlamaChatTemplate, LlamaModel},
     mtmd::{self, MtmdBitmap, MtmdContext, MtmdInputText},
     sampling::LlamaSampler,
     token::LlamaToken,
@@ -126,6 +126,8 @@ pub enum MessageRole {
     User,
     #[strum(to_string = "system")]
     System,
+    #[strum(to_string = "{0}")]
+    Custom(&'static str),
 }
 
 #[derive(Debug, Clone)]
@@ -399,9 +401,7 @@ where
                 },
             )
             .into_iter()
-            .map(|(role, content)| LlamaChatMessage::new(role.to_string(), content))
-            .collect::<Result<Vec<_>, _>>()
-            .expect("message preprocessing failed");
+            .collect::<Vec<_>>();
         log::debug!(target: "gemma", "preprocessed messages: {messages:?}");
 
         // apply custom template
@@ -494,9 +494,7 @@ where
                 },
             )
             .into_iter()
-            .map(|(role, content)| LlamaChatMessage::new(role.to_string(), content))
-            .collect::<Result<Vec<_>, _>>()
-            .expect("message preprocessing failed");
+            .collect::<Vec<_>>();
         log::debug!(target: "gemma", "preprocessed messages: {messages:?}");
 
         // apply custom template
