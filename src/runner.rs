@@ -22,7 +22,7 @@ use llama_cpp_2::{
 use strum::Display;
 
 use crate::{
-    error::{CreateLlamaCppRunnerError, RunnerError},
+    error::{CreateLlamaCppRunnerError, GenericRunnerError},
     sample::{LlguidanceSamplingParams, SimpleSamplingParams},
     template::{ChatTemplate, ModelChatTemplate},
 };
@@ -36,7 +36,7 @@ pub const GEMMA_3_1B_GUFF_MODEL_FILENAME: &str = "gemma-3-1b-it-q4_0.gguf";
 
 pub trait TextLmRunner<'s, 'req> {
     type Response: Iterator<
-        Item = Result<String, RunnerError<<Self::Template as ChatTemplate>::Error>>,
+        Item = Result<String, GenericRunnerError<<Self::Template as ChatTemplate>::Error>>,
     >;
     type Template: ChatTemplate;
     fn stream_lm_response(
@@ -47,7 +47,7 @@ pub trait TextLmRunner<'s, 'req> {
 
 pub trait VisionLmRunner<'s, 'req> {
     type Response: Iterator<
-        Item = Result<String, RunnerError<<Self::Template as ChatTemplate>::Error>>,
+        Item = Result<String, GenericRunnerError<<Self::Template as ChatTemplate>::Error>>,
     >;
     type Template: ChatTemplate;
     fn stream_vlm_response(
@@ -57,7 +57,7 @@ pub trait VisionLmRunner<'s, 'req> {
 }
 
 #[derive(Debug, Clone)]
-pub struct RunnerRequest<MsgCt, Tmpl> {
+pub struct GenericRunnerRequest<MsgCt, Tmpl> {
     pub messages: Vec<(MessageRole, MsgCt)>,
     pub sampling: SimpleSamplingParams,
     pub llguidance: Option<LlguidanceSamplingParams>,
@@ -66,7 +66,7 @@ pub struct RunnerRequest<MsgCt, Tmpl> {
     pub tmpl: Tmpl,
 }
 
-impl<M, T> Default for RunnerRequest<M, T>
+impl<M, T> Default for GenericRunnerRequest<M, T>
 where
     T: Default,
 {
@@ -82,24 +82,25 @@ where
     }
 }
 
-pub type GenericTextLmRequest<'a, Tmpl> = RunnerRequest<&'a str, Tmpl>;
-pub type GenericVisionLmRequest<'a, Tmpl> = RunnerRequest<ImageOrText<'a>, Tmpl>;
+pub type GenericTextLmRequest<'a, Tmpl> = GenericRunnerRequest<&'a str, Tmpl>;
+pub type GenericVisionLmRequest<'a, Tmpl> = GenericRunnerRequest<ImageOrText<'a>, Tmpl>;
 
-pub type TextLmRequest<'a> = RunnerRequest<&'a str, ModelChatTemplate>;
-pub type VisionLmRequest<'a> = RunnerRequest<ImageOrText<'a>, ModelChatTemplate>;
+pub type RunnerRequest<'a, MsgCnt> = GenericRunnerRequest<MsgCnt, ModelChatTemplate>;
+pub type TextLmRequest<'a> = RunnerRequest<'a, &'a str>;
+pub type VisionLmRequest<'a> = RunnerRequest<'a, ImageOrText<'a>>;
 
 pub trait TextLmRunnerExt<'s, 'req, Tmpl, TmplErr> {
     fn get_lm_response(
         &'s self,
         request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> Result<String, RunnerError<TmplErr>>;
+    ) -> Result<String, GenericRunnerError<TmplErr>>;
 }
 
 pub trait VisionLmRunnerExt<'s, 'req, Tmpl, TmplErr> {
     fn get_vlm_response(
         &'s self,
         request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> Result<String, RunnerError<TmplErr>>;
+    ) -> Result<String, GenericRunnerError<TmplErr>>;
 }
 
 impl<'s, 'req, TextRunner, Tmpl> TextLmRunnerExt<'s, 'req, Tmpl, Tmpl::Error> for TextRunner
@@ -110,7 +111,7 @@ where
     fn get_lm_response(
         &'s self,
         request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> Result<String, RunnerError<Tmpl::Error>> {
+    ) -> Result<String, GenericRunnerError<Tmpl::Error>> {
         self.stream_lm_response(request)
             .collect::<Result<String, _>>()
     }
@@ -124,7 +125,7 @@ where
     fn get_vlm_response(
         &'s self,
         request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> Result<String, RunnerError<Tmpl::Error>> {
+    ) -> Result<String, GenericRunnerError<Tmpl::Error>> {
         self.stream_vlm_response(request)
             .collect::<Result<String, _>>()
     }
@@ -204,7 +205,6 @@ impl Gemma3TextRunner<ModelChatTemplate> {
             default_sampling: Self::recommend_sampling(),
         })
     }
-
 }
 
 impl<'s, 'req, Tmpl> TextLmRunner<'s, 'req> for Gemma3TextRunner<Tmpl>
@@ -221,7 +221,7 @@ where
                 &LLAMA_BACKEND,
                 LlamaContextParams::default().with_n_ctx(Some(self.ctx_size)),
             )
-            .map_err(|err| RunnerError::from(err));
+            .map_err(|err| GenericRunnerError::from(err));
         Gemma3Stream::new(ctx, request, self, &self.model)
     }
 }
@@ -338,7 +338,7 @@ where
     ) -> Self::Response {
         let ctx = self
             .new_context_window()
-            .map_err(|err| RunnerError::from(err));
+            .map_err(|err| GenericRunnerError::from(err));
         Gemma3Stream::new(ctx, request, self, &self.model)
     }
 }
@@ -373,9 +373,9 @@ impl<'a, Tmpl> From<GenericTextLmRequest<'a, Tmpl>> for GenericVisionLmRequest<'
 }
 
 pub struct Gemma3Stream<'a, Message, Runner, Tmpl: ChatTemplate> {
-    ctx_source: Option<Result<LlamaContext<'a>, RunnerError<Tmpl::Error>>>,
+    ctx_source: Option<Result<LlamaContext<'a>, GenericRunnerError<Tmpl::Error>>>,
     ctx: Option<LlamaContext<'a>>,
-    req: RunnerRequest<Message, Tmpl>,
+    req: GenericRunnerRequest<Message, Tmpl>,
     runner: &'a Runner,
     model: &'a LlamaModel,
     runtime: Option<Runtime<'a>>,
@@ -391,7 +391,7 @@ struct Runtime<'a> {
 }
 
 trait PrepareRun<TmplErr> {
-    fn prepare(&mut self) -> Result<(), RunnerError<TmplErr>>;
+    fn prepare(&mut self) -> Result<(), GenericRunnerError<TmplErr>>;
 }
 
 impl<Tmpl> PrepareRun<Tmpl::Error>
@@ -399,7 +399,7 @@ impl<Tmpl> PrepareRun<Tmpl::Error>
 where
     Tmpl: ChatTemplate,
 {
-    fn prepare(&mut self) -> Result<(), RunnerError<Tmpl::Error>> {
+    fn prepare(&mut self) -> Result<(), GenericRunnerError<Tmpl::Error>> {
         // Preprocess the message, flattening media
         let media_marker = mtmd::mtmd_default_marker();
         let messages = self
@@ -435,7 +435,7 @@ where
             .req
             .tmpl
             .apply_template(self.model, &self.runner.chat_template, &messages)
-            .map_err(RunnerError::ApplyChatTemplate)?;
+            .map_err(GenericRunnerError::ApplyChatTemplate)?;
 
         // Aggregate images
         let bitmaps = self
@@ -498,7 +498,7 @@ impl<S: AsRef<str>, Tmpl> PrepareRun<Tmpl::Error>
 where
     Tmpl: ChatTemplate,
 {
-    fn prepare(&mut self) -> Result<(), RunnerError<Tmpl::Error>> {
+    fn prepare(&mut self) -> Result<(), GenericRunnerError<Tmpl::Error>> {
         // Preprocess the message
         let messages = self
             .req
@@ -529,7 +529,7 @@ where
             .req
             .tmpl
             .apply_template(self.model, &self.runner.llama_template, &messages)
-            .map_err(RunnerError::ApplyChatTemplate)?;
+            .map_err(GenericRunnerError::ApplyChatTemplate)?;
 
         // Aggregate images
         let token_list = self.model.str_to_token(&formatted_prompt, AddBos::Always)?;
@@ -563,7 +563,7 @@ where
     Tmpl: ChatTemplate,
     Self: PrepareRun<Tmpl::Error>,
 {
-    type Item = Result<String, RunnerError<Tmpl::Error>>;
+    type Item = Result<String, GenericRunnerError<Tmpl::Error>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
@@ -607,7 +607,7 @@ where
                           sampler: &mut LlamaSampler,
                           ctx: &mut LlamaContext<'a>,
                           step: usize|
-         -> Result<Option<String>, RunnerError<Tmpl::Error>> {
+         -> Result<Option<String>, GenericRunnerError<Tmpl::Error>> {
             sampler.accept(token);
             if model.is_eog_token(token) {
                 return Ok(None);
@@ -662,8 +662,8 @@ where
     Tmpl: ChatTemplate,
 {
     fn new(
-        source: Result<LlamaContext<'s>, RunnerError<Tmpl::Error>>,
-        req: RunnerRequest<Message, Tmpl>,
+        source: Result<LlamaContext<'s>, GenericRunnerError<Tmpl::Error>>,
+        req: GenericRunnerRequest<Message, Tmpl>,
         runner: &'s Runner,
         model: &'s LlamaModel,
     ) -> Self {

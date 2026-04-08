@@ -1,6 +1,6 @@
 use llama_cpp_2::{
-    ChatTemplateError, DecodeError, GrammarError, LlamaContextLoadError, LlamaModelLoadError,
-    StringToTokenError, TokenToStringError,
+    ApplyChatTemplateError, ChatTemplateError, DecodeError, GrammarError, LlamaContextLoadError,
+    LlamaModelLoadError, StringToTokenError, TokenToStringError,
     llama_batch::BatchAddError,
     mtmd::{MtmdEvalError, MtmdInitError, MtmdTokenizeError},
 };
@@ -19,7 +19,7 @@ pub enum CreateLlamaCppRunnerError {
 }
 
 #[derive(Debug, Error)]
-pub enum RunnerError<TmplErr> {
+pub enum GenericRunnerError<TmplErr> {
     #[error("load context: {0}")]
     LoadContext(#[from] LlamaContextLoadError),
     #[error("apply chat template: {0}")]
@@ -39,3 +39,5 @@ pub enum RunnerError<TmplErr> {
     #[error("llguidance: {0}")]
     Llguidance(#[from] GrammarError),
 }
+
+pub type RunnerError = GenericRunnerError<ApplyChatTemplateError>;
