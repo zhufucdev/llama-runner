@@ -13,7 +13,7 @@ categories = ["text-processing", "science"]
 [dependencies]
 encoding_rs = "0.8"
 hf-hub = { version = "0.5", features = ["tokio"] }
-image = "0.25.10"
+image = "0.25"
 llama-cpp-2 = { version = "0.1.140", features = ["mtmd", "llguidance"] }
 log = "0.4"
 rand = "0.10"
