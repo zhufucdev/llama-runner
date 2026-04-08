@@ -1,6 +1,6 @@
 use llama_cpp_2::{
-    ApplyChatTemplateError, ChatTemplateError, DecodeError, GrammarError, LlamaContextLoadError,
-    LlamaModelLoadError, StringToTokenError, TokenToStringError,
+    ChatTemplateError, DecodeError, GrammarError, LlamaContextLoadError, LlamaModelLoadError,
+    StringToTokenError, TokenToStringError,
     llama_batch::BatchAddError,
     mtmd::{MtmdEvalError, MtmdInitError, MtmdTokenizeError},
 };
@@ -19,13 +19,11 @@ pub enum CreateLlamaCppRunnerError {
 }
 
 #[derive(Debug, Error)]
-pub enum RunnerError {
+pub enum RunnerError<TmplErr> {
     #[error("load context: {0}")]
     LoadContext(#[from] LlamaContextLoadError),
-    #[error("load chat template: {0}")]
-    LoadChatTemplate(#[from] ChatTemplateError),
     #[error("apply chat template: {0}")]
-    ApplyChatTemplate(#[from] ApplyChatTemplateError),
+    ApplyChatTemplate(TmplErr),
     #[error("mtmd tokenize: {0}")]
     MtmdTokenize(#[from] MtmdTokenizeError),
     #[error("token-string conversion: {0}")]
