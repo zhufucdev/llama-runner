@@ -165,20 +165,6 @@ impl<Tmpl> Gemma3TextRunner<Tmpl> {
         Self::from_file(repo.get(model_file.as_ref()).await?, ctx_size)
     }
 
-    pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
-    {
-        let inner = Self::new(
-            GEMMA_3_1B_GUFF_MODEL_ID,
-            GEMMA_3_1B_GUFF_MODEL_FILENAME,
-            32_000.try_into().unwrap(),
-        )
-        .await?;
-        Ok(RunnerWithRecommendedSampling {
-            inner,
-            default_sampling: Self::recommend_sampling(),
-        })
-    }
-
     pub fn recommend_sampling() -> SimpleSamplingParams {
         SimpleSamplingParams {
             top_p: Some(0.95f32),
@@ -202,6 +188,23 @@ impl<Tmpl> Gemma3TextRunner<Tmpl> {
             _tmpl: PhantomData,
         })
     }
+}
+
+impl Gemma3TextRunner<ModelChatTemplate> {
+    pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
+    {
+        let inner = Self::new(
+            GEMMA_3_1B_GUFF_MODEL_ID,
+            GEMMA_3_1B_GUFF_MODEL_FILENAME,
+            32_000.try_into().unwrap(),
+        )
+        .await?;
+        Ok(RunnerWithRecommendedSampling {
+            inner,
+            default_sampling: Self::recommend_sampling(),
+        })
+    }
+
 }
 
 impl<'s, 'req, Tmpl> TextLmRunner<'s, 'req> for Gemma3TextRunner<Tmpl>
@@ -267,28 +270,6 @@ impl<Tmpl> Gemma3VisionRunner<Tmpl> {
         })
     }
 
-    pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
-    {
-        let inner = Self::new(
-            QWEN_3D5_4B_GUFF_MODEL_ID,
-            QWEN_3D5_4B_GUFF_MODDEL_FILENAME,
-            QWEN_3D5_4B_GUFF_MULTIMODEL_FILENAME,
-            16384u32.try_into().unwrap(),
-        )
-        .await?;
-        Ok(RunnerWithRecommendedSampling {
-            inner: inner,
-            default_sampling: SimpleSamplingParams {
-                top_p: Some(0.8f32),
-                top_k: Some(20),
-                temperature: Some(0.7f32),
-                presence_penalty: Some(1.5),
-                repetition_penalty: Some(1.0),
-                seed: None,
-            },
-        })
-    }
-
     pub fn from_files(
         model_file: impl AsRef<Path>,
         multimodel_file: impl AsRef<Path>,
@@ -317,6 +298,30 @@ impl<Tmpl> Gemma3VisionRunner<Tmpl> {
             &LLAMA_BACKEND,
             LlamaContextParams::default().with_n_ctx(Some(self.ctx_size)),
         )
+    }
+}
+
+impl Gemma3VisionRunner<ModelChatTemplate> {
+    pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
+    {
+        let inner = Self::new(
+            QWEN_3D5_4B_GUFF_MODEL_ID,
+            QWEN_3D5_4B_GUFF_MODDEL_FILENAME,
+            QWEN_3D5_4B_GUFF_MULTIMODEL_FILENAME,
+            16384u32.try_into().unwrap(),
+        )
+        .await?;
+        Ok(RunnerWithRecommendedSampling {
+            inner: inner,
+            default_sampling: SimpleSamplingParams {
+                top_p: Some(0.8f32),
+                top_k: Some(20),
+                temperature: Some(0.7f32),
+                presence_penalty: Some(1.5),
+                repetition_penalty: Some(1.0),
+                seed: None,
+            },
+        })
     }
 }
 
