@@ -17,8 +17,8 @@ use llama_cpp_2::{
 };
 
 use crate::{
-    GenericTextLmRequest, GenericVisionLmRequest, ImageOrText, MessageRole, TextLmRunner,
-    VisionLmRunner,
+    GenericTextLmRequest, GenericVisionLmRequest, ImageOrText, MessageRole,
+    RunnerWithRecommendedSampling, TextLmRunner, VisionLmRunner,
     error::{CreateLlamaCppRunnerError, GenericRunnerError},
     runner::{Gemma3Stream, LLAMA_BACKEND, PrepareRun, Runtime},
     sample::SimpleSamplingParams,
@@ -238,71 +238,6 @@ impl<'a, Tmpl> From<GenericTextLmRequest<'a, Tmpl>> for GenericVisionLmRequest<'
     }
 }
 
-pub struct RunnerWithRecommendedSampling<Inner> {
-    pub inner: Inner,
-    pub default_sampling: SimpleSamplingParams,
-}
-
-impl<'a, Inner> RunnerWithRecommendedSampling<Inner> {
-    fn get_preprocessed_simple_sampling(
-        &self,
-        sampling: SimpleSamplingParams,
-    ) -> SimpleSamplingParams {
-        let mut sampling = sampling;
-        if sampling.top_k.is_none() {
-            sampling.top_k = self.default_sampling.top_k;
-        }
-        if sampling.top_p.is_none() {
-            sampling.top_p = self.default_sampling.top_p;
-        }
-        if sampling.temperature.is_none() {
-            sampling.temperature = self.default_sampling.temperature;
-        }
-        sampling
-    }
-}
-
-impl<'s, 'req, Inner> VisionLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
-where
-    Inner: VisionLmRunner<'s, 'req>,
-{
-    fn stream_vlm_response<Tmpl>(
-        &'s self,
-        mut request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
-        request.sampling = self.get_preprocessed_simple_sampling(request.sampling);
-        self.inner.stream_vlm_response(request)
-    }
-}
-
-impl<'s, 'req, Inner> TextLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
-where
-    Inner: TextLmRunner<'s, 'req>,
-{
-    fn stream_lm_response<Tmpl>(
-        &'s self,
-        mut request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
-        request.sampling = self.get_preprocessed_simple_sampling(request.sampling);
-        self.inner.stream_lm_response(request)
-    }
-}
-
-impl<Inner> From<Inner> for RunnerWithRecommendedSampling<Inner> {
-    fn from(value: Inner) -> Self {
-        Self {
-            inner: value,
-            default_sampling: SimpleSamplingParams::default(),
-        }
-    }
-}
-
 fn build_hf_api() -> Result<hf_hub::api::tokio::Api, hf_hub::api::tokio::ApiError> {
     let mut api = ApiBuilder::new()
         .with_progress(std::io::stdin().is_terminal())
@@ -478,5 +413,42 @@ where
         self.runtime = Some(preparation);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+
+    #[tokio::test]
+    async fn test_lm() {
+        let runner = Gemma3TextRunner::default().await.unwrap();
+        let answer = runner
+            .get_lm_response(TextLmRequest {
+                messages: vec![(MessageRole::User, "What is the capital of France?")],
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(answer.contains("Paris"));
+    }
+
+    #[tokio::test]
+    async fn test_vlm() {
+        let runner = Gemma3VisionRunner::default().await.unwrap();
+        let eiffel_tower_im =
+            image::load_from_memory(include_bytes!("../../assets/eiffel-tower.jpg")).unwrap();
+        let answer = runner
+            .get_vlm_response(VisionLmRequest {
+                messages: vec![
+                    (
+                        MessageRole::User,
+                        ImageOrText::Text("Which city is this building in?"),
+                    ),
+                    (MessageRole::User, ImageOrText::Image(&eiffel_tower_im)),
+                ],
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(answer.contains("Paris"));
     }
 }

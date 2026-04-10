@@ -7,7 +7,9 @@ use llama_cpp_2::{
     token::LlamaToken,
 };
 
-use crate::{GenericRunnerRequest, error::GenericRunnerError, template::ChatTemplate};
+use crate::{
+    GenericRunnerRequest, GenericTextLmRequest, GenericVisionLmRequest, TextLmRunner, VisionLmRunner, error::GenericRunnerError, sample::SimpleSamplingParams, template::ChatTemplate
+};
 
 pub struct Gemma3Stream<'a, Message, Runner, Tmpl: ChatTemplate> {
     pub(super) ctx_source: Option<Result<LlamaContext<'a>, GenericRunnerError<Tmpl::Error>>>,
@@ -29,6 +31,11 @@ pub(super) struct Runtime<'a> {
 
 pub(super) trait PrepareRun<TmplErr> {
     fn prepare(&mut self) -> Result<(), GenericRunnerError<TmplErr>>;
+}
+
+pub struct RunnerWithRecommendedSampling<Inner> {
+    pub inner: Inner,
+    pub default_sampling: SimpleSamplingParams,
 }
 
 impl<'a, Message, Runner, Tmpl> Iterator for Gemma3Stream<'a, Message, Runner, Tmpl>
@@ -151,3 +158,64 @@ where
         }
     }
 }
+
+impl<'a, Inner> RunnerWithRecommendedSampling<Inner> {
+    fn get_preprocessed_simple_sampling(
+        &self,
+        sampling: SimpleSamplingParams,
+    ) -> SimpleSamplingParams {
+        let mut sampling = sampling;
+        if sampling.top_k.is_none() {
+            sampling.top_k = self.default_sampling.top_k;
+        }
+        if sampling.top_p.is_none() {
+            sampling.top_p = self.default_sampling.top_p;
+        }
+        if sampling.temperature.is_none() {
+            sampling.temperature = self.default_sampling.temperature;
+        }
+        sampling
+    }
+}
+
+impl<'s, 'req, Inner> VisionLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
+where
+    Inner: VisionLmRunner<'s, 'req>,
+{
+    fn stream_vlm_response<Tmpl>(
+        &'s self,
+        mut request: GenericVisionLmRequest<'req, Tmpl>,
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
+    where
+        Tmpl: ChatTemplate,
+    {
+        request.sampling = self.get_preprocessed_simple_sampling(request.sampling);
+        self.inner.stream_vlm_response(request)
+    }
+}
+
+impl<'s, 'req, Inner> TextLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
+where
+    Inner: TextLmRunner<'s, 'req>,
+{
+    fn stream_lm_response<Tmpl>(
+        &'s self,
+        mut request: GenericTextLmRequest<'req, Tmpl>,
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
+    where
+        Tmpl: ChatTemplate,
+    {
+        request.sampling = self.get_preprocessed_simple_sampling(request.sampling);
+        self.inner.stream_lm_response(request)
+    }
+}
+
+impl<Inner> From<Inner> for RunnerWithRecommendedSampling<Inner> {
+    fn from(value: Inner) -> Self {
+        Self {
+            inner: value,
+            default_sampling: SimpleSamplingParams::default(),
+        }
+    }
+}
+
