@@ -3,11 +3,10 @@ use std::{cell::RefCell, str::Utf8Error, sync::Arc};
 use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
 use minijinja::{Value, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
-pub use rmcp::*;
+use rmcp::model;
 use serde::Serialize;
-use thiserror::Error;
 
-use crate::{MessageRole, template::ChatTemplate};
+use crate::{MessageRole, mcp::error::JinjaTemplateError, template::ChatTemplate};
 
 #[derive(Clone)]
 pub struct Qwen3ChatTemplate<'s> {
@@ -33,7 +32,7 @@ impl Qwen3ChatTemplate<'_> {
 }
 
 impl ChatTemplate for Qwen3ChatTemplate<'_> {
-    type Error = Qwen3ChatTemplateError;
+    type Error = JinjaTemplateError;
 
     fn apply_template(
         &self,
@@ -42,20 +41,24 @@ impl ChatTemplate for Qwen3ChatTemplate<'_> {
         messages: &[(MessageRole, String)],
     ) -> Result<String, Self::Error> {
         let env_guard = self.env.borrow();
-        let template = env_guard.template_from_str(model_tmpl.to_str()?)?;
+        let template = env_guard
+            .template_from_str(model_tmpl.to_str()?)
+            .map_err(JinjaTemplateError::Parse)?;
         #[derive(Serialize)]
-        struct MessageProxy {
-            role: String,
-            content: String,
+        struct MessageProxy<'s> {
+            role: &'s str,
+            content: &'s str,
         }
         let msg_proxies = messages
             .iter()
             .map(|(role, cnt)| MessageProxy {
-                role: role.to_string(),
-                content: cnt.clone(),
+                role: role.as_ref(),
+                content: cnt.as_str(),
             })
             .collect::<Vec<_>>();
-        Ok(template.render(context! { messages => msg_proxies })?)
+        Ok(template
+            .render(context! { messages => msg_proxies })
+            .map_err(JinjaTemplateError::Render)?)
     }
 }
 
@@ -67,17 +70,9 @@ impl Default for Qwen3ChatTemplate<'_> {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum Qwen3ChatTemplateError {
-    #[error(transparent)]
-    Jinja(#[from] minijinja::Error),
-    #[error("template decode error: {0}")]
-    Template(#[from] Utf8Error),
-}
-
 #[cfg(test)]
 mod test {
-    use super::{handler::server::tool::schema_for_type, model::Tool, *};
+    use super::{super::handler::server::tool::schema_for_type, model::Tool, *};
     use crate::*;
 
     #[tokio::test]

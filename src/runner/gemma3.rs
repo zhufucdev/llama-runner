@@ -86,14 +86,14 @@ impl Gemma3TextRunner {
     }
 }
 
-impl<'s, 'req> TextLmRunner<'s, 'req> for Gemma3TextRunner {
-    fn stream_lm_response<Tmpl>(
+impl<'s, 'req, Tmpl> TextLmRunner<'s, 'req, Tmpl> for Gemma3TextRunner
+where
+    Tmpl: ChatTemplate,
+{
+    fn stream_lm_response(
         &'s self,
         request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>> {
         let ctx = self
             .model
             .new_context(
@@ -194,14 +194,14 @@ impl Gemma3VisionRunner {
     }
 }
 
-impl<'s, 'req> VisionLmRunner<'s, 'req> for Gemma3VisionRunner {
-    fn stream_vlm_response<Tmpl>(
+impl<'s, 'req, Tmpl> VisionLmRunner<'s, 'req, Tmpl> for Gemma3VisionRunner
+where
+    Tmpl: ChatTemplate,
+{
+    fn stream_vlm_response(
         &'s self,
         request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>> {
         let ctx = self
             .new_context_window()
             .map_err(|err| GenericRunnerError::from(err));
@@ -209,14 +209,14 @@ impl<'s, 'req> VisionLmRunner<'s, 'req> for Gemma3VisionRunner {
     }
 }
 
-impl<'s, 'req> TextLmRunner<'s, 'req> for Gemma3VisionRunner {
-    fn stream_lm_response<Tmpl>(
+impl<'s, 'req, Tmpl> TextLmRunner<'s, 'req, Tmpl> for Gemma3VisionRunner
+where
+    Tmpl: ChatTemplate,
+{
+    fn stream_lm_response(
         &'s self,
         request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>> {
         self.stream_vlm_response(request.into())
     }
 }

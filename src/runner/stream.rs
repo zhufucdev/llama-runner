@@ -8,7 +8,9 @@ use llama_cpp_2::{
 };
 
 use crate::{
-    GenericRunnerRequest, GenericTextLmRequest, GenericVisionLmRequest, TextLmRunner, VisionLmRunner, error::GenericRunnerError, sample::SimpleSamplingParams, template::ChatTemplate
+    GenericRunnerRequest, GenericTextLmRequest, GenericVisionLmRequest, TextLmRunner,
+    VisionLmRunner, error::GenericRunnerError, sample::SimpleSamplingParams,
+    template::ChatTemplate,
 };
 
 pub struct Gemma3Stream<'a, Message, Runner, Tmpl: ChatTemplate> {
@@ -178,27 +180,26 @@ impl<'a, Inner> RunnerWithRecommendedSampling<Inner> {
     }
 }
 
-impl<'s, 'req, Inner> VisionLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
+impl<'s, 'req, Inner, Tmpl> VisionLmRunner<'s, 'req, Tmpl> for RunnerWithRecommendedSampling<Inner>
 where
-    Inner: VisionLmRunner<'s, 'req>,
+    Inner: VisionLmRunner<'s, 'req, Tmpl>,
+    Tmpl: ChatTemplate,
 {
-    fn stream_vlm_response<Tmpl>(
+    fn stream_vlm_response(
         &'s self,
         mut request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate,
-    {
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>> {
         request.sampling = self.get_preprocessed_simple_sampling(request.sampling);
         self.inner.stream_vlm_response(request)
     }
 }
 
-impl<'s, 'req, Inner> TextLmRunner<'s, 'req> for RunnerWithRecommendedSampling<Inner>
+impl<'s, 'req, Inner, Tmpl> TextLmRunner<'s, 'req, Tmpl> for RunnerWithRecommendedSampling<Inner>
 where
-    Inner: TextLmRunner<'s, 'req>,
+    Inner: TextLmRunner<'s, 'req, Tmpl>,
+    Tmpl: ChatTemplate,
 {
-    fn stream_lm_response<Tmpl>(
+    fn stream_lm_response(
         &'s self,
         mut request: GenericTextLmRequest<'req, Tmpl>,
     ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
@@ -218,4 +219,3 @@ impl<Inner> From<Inner> for RunnerWithRecommendedSampling<Inner> {
         }
     }
 }
-

@@ -70,6 +70,29 @@ assert!(answer.contains("<tool_call>"));
 assert!(answer.contains("<function=call_me>"));
 ```
 
+## Gemma4 support
+Enable the `mcp` feature to use Gemma4 series models.
+```shell
+cargo add llama-runner --features mcp
+```
+
+```rust
+let runner = Gemma4VisionRunner::default().await.unwrap();
+let answer = runner
+    .get_vlm_response(GenericVisionLmRequest {
+        tmpl: Gemma4ChatTemplate::new([call_me_tool()]).with_thinking(),
+        messages: vec![(
+            MessageRole::User,
+            ImageOrText::Text("Please call the `call_me` tool to continue"),
+        )],
+        ..Default::default()
+    })
+    .unwrap();
+println!("{answer}");
+assert!(answer.contains("<|tool_call>"));
+assert!(answer.contains("call:call_me"));
+```
+
 ## Credits
 
 - [llama-cpp-rs](https://github.com/utilityai/llama-cpp-rs/tree/main):

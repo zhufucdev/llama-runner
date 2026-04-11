@@ -22,20 +22,22 @@ static LLAMA_BACKEND: LazyLock<LlamaBackend> = LazyLock::new(|| {
     LlamaBackend::init().unwrap()
 });
 
-pub trait TextLmRunner<'s, 'req> {
-    fn stream_lm_response<Tmpl>(
+pub trait TextLmRunner<'s, 'req, Tmpl>
+where
+    Tmpl: ChatTemplate,
+{
+    fn stream_lm_response(
         &'s self,
         request: GenericTextLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate;
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>;
 }
 
-pub trait VisionLmRunner<'s, 'req> {
-    fn stream_vlm_response<Tmpl>(
+pub trait VisionLmRunner<'s, 'req, Tmpl>
+where
+    Tmpl: ChatTemplate,
+{
+    fn stream_vlm_response(
         &'s self,
         request: GenericVisionLmRequest<'req, Tmpl>,
-    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>
-    where
-        Tmpl: ChatTemplate;
+    ) -> impl Iterator<Item = Result<String, GenericRunnerError<Tmpl::Error>>>;
 }

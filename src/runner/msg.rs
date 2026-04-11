@@ -1,6 +1,6 @@
-use strum::Display;
+use strum::{AsRefStr, Display};
 
-#[derive(Debug, Clone, Display, PartialEq, Eq)]
+#[derive(Debug, Clone, Display, PartialEq, Eq, AsRefStr)]
 pub enum MessageRole {
     #[strum(to_string = "assistant")]
     Assistant,

@@ -1,0 +1,200 @@
+use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
+
+use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
+use minijinja::{Value, context};
+use minijinja_contrib::pycompat::unknown_method_callback;
+use serde::Serialize;
+
+use crate::{
+    Gemma4ApplicableChatTemplate, MessageRole, mcp::error::JinjaTemplateError,
+    template::ChatTemplate,
+};
+
+pub struct Gemma4ChatTemplate {
+    env: Arc<RefCell<minijinja::Environment<'static>>>,
+}
+
+impl Gemma4ChatTemplate {
+    pub fn new(tools: impl AsRef<[Gemma4Tool]>) -> Self {
+        let mut env = minijinja::Environment::new();
+        minijinja_contrib::add_to_environment(&mut env);
+        env.add_global("tools", Value::from_serialize(tools.as_ref().to_vec()));
+        env.set_unknown_method_callback(unknown_method_callback);
+        Self {
+            env: Arc::new(RefCell::new(env)),
+        }
+    }
+
+    pub fn with_thinking(self) -> Self {
+        self.env.borrow_mut().add_global("enable_thinking", true);
+        self
+    }
+}
+
+impl ChatTemplate for Gemma4ChatTemplate {
+    type Error = JinjaTemplateError;
+    fn apply_template(
+        &self,
+        _model: &LlamaModel,
+        model_tmpl: &LlamaChatTemplate,
+        messages: &[(MessageRole, String)],
+    ) -> Result<String, Self::Error> {
+        let env_guard = self.env.borrow();
+        let template = env_guard
+            .template_from_str(model_tmpl.to_str()?)
+            .map_err(JinjaTemplateError::Parse)?;
+        #[derive(Serialize)]
+        struct MsgProxy<'s> {
+            role: &'s str,
+            content: &'s str,
+        }
+        let msg_proxies = messages
+            .iter()
+            .map(|(role, cnt)| MsgProxy {
+                role: role.as_ref(),
+                content: cnt.as_str(),
+            })
+            .collect::<Vec<_>>();
+        Ok(template
+            .render(context! { messages => msg_proxies, add_generation_prompt => true })
+            .map_err(JinjaTemplateError::Render)?)
+    }
+}
+
+impl Gemma4ApplicableChatTemplate for Gemma4ChatTemplate {}
+
+impl Default for Gemma4ChatTemplate {
+    fn default() -> Self {
+        Self::new([])
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct Gemma4Tool {
+    pub function: Gemma4ToolFunction,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct Gemma4ToolFunction {
+    pub name: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Gemma4ToolFunctionParams>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response: Option<Gemma4ToolFunctionResponse>,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct Gemma4ToolFunctionParams {
+    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
+    pub required: Vec<String>,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct Gemma4ToolFunctionParamsProp {
+    pub description: String,
+    #[serde(rename = "type")]
+    pub type_: Gemma4ToolFunctionParamsPropType,
+    pub nullable: bool,
+    /// String type only
+    #[serde(rename = "enum", skip_serializing_if = "Vec::is_empty")]
+    pub enum_: Vec<String>,
+    /// Object type only
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
+    /// Object type only
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required: Vec<String>,
+    /// Array type only
+    pub items: Option<Gemma4ToolFunctionParamsPropArrayItems>,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct Gemma4ToolFunctionParamsPropArrayItems {
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
+    #[serde(rename = "enum", skip_serializing_if = "Vec::is_empty")]
+    pub required: Vec<String>,
+    #[serde(rename = "type")]
+    pub type_: Gemma4ToolFunctionParamsPropType,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub enum Gemma4ToolFunctionParamsPropType {
+    String,
+    Array,
+    #[default]
+    Object,
+    Number,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct Gemma4ToolFunctionResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub type_: Option<Gemma4ToolFunctionParamsPropType>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::*;
+
+    fn call_me_tool() -> Gemma4Tool {
+        Gemma4Tool { 
+            function: Gemma4ToolFunction {
+                name: "call_me".into(),
+                description: "This is a test for your MCP tool calling capability. You SHOULD call this tool once seeing it.".into(),
+                parameters: Some(Gemma4ToolFunctionParams {
+                    properties: [("favourite_number".into(), Gemma4ToolFunctionParamsProp {
+                        description: "Give me your favourite number from 0 to 99".into(),
+                        type_: Gemma4ToolFunctionParamsPropType::Number,
+                        nullable: false,
+                        ..Default::default()
+                    })].into_iter().collect(),
+                    required: vec!["favourite_number".into()]
+                }),
+                ..Default::default() 
+            } 
+        }
+    }
+
+    #[tokio::test]
+    async fn test_gemma4_mcp() {
+        let runner = Gemma4VisionRunner::default().await.unwrap();
+        let answer = runner
+            .get_vlm_response(GenericVisionLmRequest {
+                tmpl: Gemma4ChatTemplate::new([call_me_tool()]).with_thinking(),
+                messages: vec![(
+                    MessageRole::User,
+                    ImageOrText::Text("Please call the `call_me` tool to continue"),
+                )],
+                ..Default::default()
+            })
+            .unwrap();
+        println!("{answer}");
+        assert!(answer.contains("<|tool_call>"));
+        assert!(answer.contains("call:call_me"));
+        assert!(answer.contains("favourite_number"));
+    }
+
+    #[tokio::test]
+    async fn test_gemma4_mcp_no_thinking() {
+        let runner = Gemma4VisionRunner::default().await.unwrap();
+        let answer = runner
+            .get_vlm_response(GenericVisionLmRequest {
+                tmpl: Gemma4ChatTemplate::new([call_me_tool()]),
+                messages: vec![(
+                    MessageRole::User,
+                    ImageOrText::Text("Please call the `call_me` tool to continue"),
+                )],
+                ..Default::default()
+            })
+            .unwrap();
+        println!("{answer}");
+        assert!(answer.contains("<|tool_call>"));
+        assert!(answer.contains("call:call_me"));
+        assert!(answer.contains("favourite_number"));
+    }
+}
