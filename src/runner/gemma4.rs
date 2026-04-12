@@ -1,8 +1,5 @@
-use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
-
 use crate::{
-    Gemma3Stream, Gemma3VisionRunner, GenericVisionLmRequest, MessageRole,
-    RunnerWithRecommendedSampling, VisionLmRunner,
+    Gemma3VisionRunner, GenericVisionLmRequest, RunnerWithRecommendedSampling, VisionLmRunner,
     error::{CreateLlamaCppRunnerError, GenericRunnerError},
     sample::SimpleSamplingParams,
     template::ChatTemplate,
@@ -28,9 +25,9 @@ impl Gemma4VisionRunner {
         Ok(RunnerWithRecommendedSampling {
             inner: Gemma4VisionRunner(inner),
             default_sampling: SimpleSamplingParams {
-                top_p: Some(0.8f32),
-                top_k: Some(20),
-                temperature: Some(0.7f32),
+                top_p: Some(0.95f32),
+                top_k: Some(64),
+                temperature: Some(1.0f32),
                 presence_penalty: Some(1.5),
                 repetition_penalty: Some(1.0),
                 seed: None,
