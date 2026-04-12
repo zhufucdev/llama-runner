@@ -10,6 +10,7 @@ use crate::{
     template::ChatTemplate,
 };
 
+#[derive(Clone)]
 pub struct Gemma4ChatTemplate {
     env: Arc<RefCell<minijinja::Environment<'static>>>,
 }
