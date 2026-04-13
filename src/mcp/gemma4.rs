@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
 use minijinja::{Value, context};
@@ -11,28 +11,26 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct Gemma4ChatTemplate {
-    env: Arc<RefCell<minijinja::Environment<'static>>>,
+pub struct Gemma4ChatTemplate<'s> {
+    env: minijinja::Environment<'s>,
 }
 
-impl Gemma4ChatTemplate {
+impl Gemma4ChatTemplate<'_> {
     pub fn new(tools: impl AsRef<[Gemma4Tool]>) -> Self {
         let mut env = minijinja::Environment::new();
         minijinja_contrib::add_to_environment(&mut env);
         env.add_global("tools", Value::from_serialize(tools.as_ref().to_vec()));
         env.set_unknown_method_callback(unknown_method_callback);
-        Self {
-            env: Arc::new(RefCell::new(env)),
-        }
+        Self { env }
     }
 
-    pub fn with_thinking(self) -> Self {
-        self.env.borrow_mut().add_global("enable_thinking", true);
+    pub fn with_thinking(mut self) -> Self {
+        self.env.add_global("enable_thinking", true);
         self
     }
 }
 
-impl ChatTemplate for Gemma4ChatTemplate {
+impl ChatTemplate for Gemma4ChatTemplate<'_> {
     type Error = JinjaTemplateError;
     fn apply_template(
         &self,
@@ -40,8 +38,8 @@ impl ChatTemplate for Gemma4ChatTemplate {
         model_tmpl: &LlamaChatTemplate,
         messages: &[(MessageRole, String)],
     ) -> Result<String, Self::Error> {
-        let env_guard = self.env.borrow();
-        let template = env_guard
+        let template = self
+            .env
             .template_from_str(model_tmpl.to_str()?)
             .map_err(JinjaTemplateError::Parse)?;
         #[derive(Serialize)]
@@ -62,9 +60,9 @@ impl ChatTemplate for Gemma4ChatTemplate {
     }
 }
 
-impl Gemma4ApplicableChatTemplate for Gemma4ChatTemplate {}
+impl Gemma4ApplicableChatTemplate for Gemma4ChatTemplate<'_> {}
 
-impl Default for Gemma4ChatTemplate {
+impl Default for Gemma4ChatTemplate<'_> {
     fn default() -> Self {
         Self::new([])
     }
@@ -143,7 +141,7 @@ mod test {
     use crate::*;
 
     fn call_me_tool() -> Gemma4Tool {
-        Gemma4Tool { 
+        Gemma4Tool {
             function: Gemma4ToolFunction {
                 name: "call_me".into(),
                 description: "This is a test for your MCP tool calling capability. You SHOULD call this tool once seeing it.".into(),
@@ -156,8 +154,8 @@ mod test {
                     })].into_iter().collect(),
                     required: vec!["favourite_number".into()]
                 }),
-                ..Default::default() 
-            } 
+                ..Default::default()
+            }
         }
     }
 

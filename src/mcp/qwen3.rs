@@ -1,5 +1,3 @@
-use std::{cell::RefCell, str::Utf8Error, sync::Arc};
-
 use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
 use minijinja::{Value, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
@@ -10,7 +8,7 @@ use crate::{MessageRole, mcp::error::JinjaTemplateError, template::ChatTemplate}
 
 #[derive(Clone)]
 pub struct Qwen3ChatTemplate<'s> {
-    env: Arc<RefCell<minijinja::Environment<'s>>>,
+    env: minijinja::Environment<'s>,
 }
 
 impl Qwen3ChatTemplate<'_> {
@@ -18,14 +16,11 @@ impl Qwen3ChatTemplate<'_> {
         let mut env = minijinja::Environment::new();
         env.add_global("tools", Value::from_serialize(tools.as_ref().to_vec()));
         env.set_unknown_method_callback(unknown_method_callback);
-        Self {
-            env: Arc::new(RefCell::new(env)),
-        }
+        Self { env }
     }
 
-    pub fn without_thinking(self) -> Self {
+    pub fn without_thinking(mut self) -> Self {
         self.env
-            .borrow_mut()
             .add_global("enable_thinking", Value::from_serialize(false));
         self
     }
@@ -40,8 +35,8 @@ impl ChatTemplate for Qwen3ChatTemplate<'_> {
         model_tmpl: &LlamaChatTemplate,
         messages: &[(MessageRole, String)],
     ) -> Result<String, Self::Error> {
-        let env_guard = self.env.borrow();
-        let template = env_guard
+        let template = self
+            .env
             .template_from_str(model_tmpl.to_str()?)
             .map_err(JinjaTemplateError::Parse)?;
         #[derive(Serialize)]
@@ -64,9 +59,7 @@ impl ChatTemplate for Qwen3ChatTemplate<'_> {
 
 impl Default for Qwen3ChatTemplate<'_> {
     fn default() -> Self {
-        Self {
-            env: Arc::new(Default::default()),
-        }
+        Self::new([])
     }
 }
 
