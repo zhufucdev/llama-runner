@@ -1,6 +1,6 @@
 [package]
 name = "llama-runner"
-version = "2.2.0"
+version = "2.3.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "A straightforward Rust library for running llama.cpp models locally on device"

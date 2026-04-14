@@ -30,6 +30,11 @@ impl Gemma4ChatTemplate<'_> {
         self.env.add_global("enable_thinking", true);
         self
     }
+
+    pub fn without_thinking(mut self) -> Self {
+        self.env.add_global("enable_thinking", false);
+        self
+    }
 }
 
 impl ChatTemplate for Gemma4ChatTemplate<'_> {

@@ -19,9 +19,13 @@ impl Qwen3ChatTemplate<'_> {
         Self { env }
     }
 
+    pub fn with_thinking(mut self) -> Self {
+        self.env.add_global("enable_thinking", true);
+        self
+    }
+
     pub fn without_thinking(mut self) -> Self {
-        self.env
-            .add_global("enable_thinking", Value::from_serialize(false));
+        self.env.add_global("enable_thinking", false);
         self
     }
 }
