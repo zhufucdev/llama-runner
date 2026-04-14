@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use llama_cpp_2::model::{LlamaChatTemplate, LlamaModel};
 use minijinja::{Value, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
@@ -9,6 +7,10 @@ use crate::{
     Gemma4ApplicableChatTemplate, MessageRole, mcp::error::JinjaTemplateError,
     template::ChatTemplate,
 };
+
+mod convert;
+mod tool;
+pub use tool::*;
 
 #[derive(Clone)]
 pub struct Gemma4ChatTemplate<'s> {
@@ -66,73 +68,6 @@ impl Default for Gemma4ChatTemplate<'_> {
     fn default() -> Self {
         Self::new([])
     }
-}
-
-#[derive(Serialize, Clone)]
-pub struct Gemma4Tool {
-    pub function: Gemma4ToolFunction,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct Gemma4ToolFunction {
-    pub name: String,
-    pub description: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parameters: Option<Gemma4ToolFunctionParams>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response: Option<Gemma4ToolFunctionResponse>,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct Gemma4ToolFunctionParams {
-    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
-    pub required: Vec<String>,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct Gemma4ToolFunctionParamsProp {
-    pub description: String,
-    #[serde(rename = "type")]
-    pub type_: Gemma4ToolFunctionParamsPropType,
-    pub nullable: bool,
-    /// String type only
-    #[serde(rename = "enum", skip_serializing_if = "Vec::is_empty")]
-    pub enum_: Vec<String>,
-    /// Object type only
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
-    /// Object type only
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub required: Vec<String>,
-    /// Array type only
-    pub items: Option<Gemma4ToolFunctionParamsPropArrayItems>,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct Gemma4ToolFunctionParamsPropArrayItems {
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub properties: BTreeMap<String, Gemma4ToolFunctionParamsProp>,
-    #[serde(rename = "enum", skip_serializing_if = "Vec::is_empty")]
-    pub required: Vec<String>,
-    #[serde(rename = "type")]
-    pub type_: Gemma4ToolFunctionParamsPropType,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub enum Gemma4ToolFunctionParamsPropType {
-    String,
-    Array,
-    #[default]
-    Object,
-    Number,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct Gemma4ToolFunctionResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(rename = "type")]
-    pub type_: Option<Gemma4ToolFunctionParamsPropType>,
 }
 
 #[cfg(test)]

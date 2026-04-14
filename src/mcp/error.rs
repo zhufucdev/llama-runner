@@ -1,4 +1,4 @@
-use std::str::Utf8Error;
+use std::{borrow::Cow, str::Utf8Error};
 
 use thiserror::Error;
 
@@ -11,3 +11,7 @@ pub enum JinjaTemplateError {
     #[error("render: {0}")]
     Render(minijinja::Error),
 }
+
+#[derive(Clone, Debug, Error)]
+#[error("invalid field for a tool: {0}")]
+pub struct ParseToolError(pub(crate) Cow<'static, str>);

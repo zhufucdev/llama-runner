@@ -1456,7 +1456,7 @@ dependencies = [
 
 [[package]]
 name = "llama-runner"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "encoding_rs",
  "hf-hub",
@@ -1468,6 +1468,7 @@ dependencies = [
  "rand 0.10.0",
  "rmcp",
  "serde",
+ "serde_json",
  "strum 0.28.0",
  "thiserror",
  "tokio",
