@@ -20,6 +20,7 @@ use crate::{
     GenericTextLmRequest, GenericVisionLmRequest, ImageOrText, MessageRole,
     RunnerWithRecommendedSampling, TextLmRunner, VisionLmRunner,
     error::{CreateLlamaCppRunnerError, GenericRunnerError},
+    hf::build_hf_api,
     runner::{Gemma3Stream, LLAMA_BACKEND, PrepareRun, Runtime},
     sample::SimpleSamplingParams,
     template::ChatTemplate,
@@ -236,22 +237,6 @@ impl<'a, Tmpl> From<GenericTextLmRequest<'a, Tmpl>> for GenericVisionLmRequest<'
             tmpl: value.tmpl,
         }
     }
-}
-
-fn build_hf_api() -> Result<hf_hub::api::tokio::Api, hf_hub::api::tokio::ApiError> {
-    let mut api = ApiBuilder::new()
-        .with_progress(std::io::stdin().is_terminal())
-        .with_token(std::env::var("HF_TOKEN").ok())
-        .with_chunk_size(Some(2 << 28));
-    if let Ok(endpoint) = std::env::var("HF_ENDPOINT") {
-        api = api.with_endpoint(endpoint);
-    }
-    if let Ok(cache) = std::env::var("HF_HOME") {
-        api = api.with_cache_dir(
-            PathBuf::from_str(&cache).expect("HF_HOME env var is not a valid path"),
-        );
-    }
-    api.build()
 }
 
 impl<Tmpl> PrepareRun<Tmpl::Error> for Gemma3Stream<'_, ImageOrText<'_>, Gemma3VisionRunner, Tmpl>

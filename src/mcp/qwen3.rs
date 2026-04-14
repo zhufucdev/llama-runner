@@ -56,7 +56,7 @@ impl ChatTemplate for Qwen3ChatTemplate<'_> {
             })
             .collect::<Vec<_>>();
         Ok(template
-            .render(context! { messages => msg_proxies })
+            .render(context! { messages => msg_proxies, add_generation_prompt => true })
             .map_err(JinjaTemplateError::Render)?)
     }
 }
@@ -82,7 +82,7 @@ mod test {
         );
         let answer = runner
             .get_vlm_response(GenericVisionLmRequest {
-                tmpl: Qwen3ChatTemplate::new([call_me_tool]),
+                tmpl: Qwen3ChatTemplate::new([call_me_tool]).with_thinking(),
                 messages: vec![(
                     MessageRole::User,
                     ImageOrText::Text("Please call the `call_me` tool to continue"),
@@ -90,8 +90,12 @@ mod test {
                 ..Default::default()
             })
             .unwrap();
-        assert!(answer.contains("<tool_call>"));
-        assert!(answer.contains("<function=call_me>"));
+        assert!(answer.contains("</think>"));
+        let (reasoning, rest) = answer.split_once("</think>").unwrap();
+        assert!(!reasoning.is_empty());
+
+        assert!(rest.contains("<tool_call>"));
+        assert!(rest.contains("<function=call_me>"));
     }
 
     #[tokio::test]
