@@ -13,9 +13,18 @@ pub const GEMMA_4_E2B_GUFF_MULTIMODEL_FILENAME: &str = "mmproj-F16.gguf";
 pub struct Gemma4VisionRunner(Gemma3VisionRunner);
 
 impl Gemma4VisionRunner {
+    pub async fn new(
+        repo_id: impl ToString,
+        model_file: impl AsRef<str>,
+        multimodel_file: impl AsRef<str>,
+        ctx_size: NonZeroU32,
+    ) -> Result<Self, CreateLlamaCppRunnerError> {
+        Self(Gemma3VisionRunner::new(repo_id, model_file, multimodel_file, ctx_size).await?)
+    }
+
     pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
     {
-        let inner = Gemma3VisionRunner::new(
+        let inner = Self::new(
             GEMMA_4_E2B_GUFF_MODEL_ID,
             GEMMA_4_E2B_GUFF_MODEL_FILENAME,
             GEMMA_4_E2B_GUFF_MULTIMODEL_FILENAME,
