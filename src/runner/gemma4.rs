@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use crate::{
     Gemma3VisionRunner, GenericVisionLmRequest, RunnerWithRecommendedSampling, VisionLmRunner,
     error::{CreateLlamaCppRunnerError, GenericRunnerError},
@@ -19,7 +21,9 @@ impl Gemma4VisionRunner {
         multimodel_file: impl AsRef<str>,
         ctx_size: NonZeroU32,
     ) -> Result<Self, CreateLlamaCppRunnerError> {
-        Self(Gemma3VisionRunner::new(repo_id, model_file, multimodel_file, ctx_size).await?)
+        Ok(Self(
+            Gemma3VisionRunner::new(repo_id, model_file, multimodel_file, ctx_size).await?,
+        ))
     }
 
     pub async fn default() -> Result<RunnerWithRecommendedSampling<Self>, CreateLlamaCppRunnerError>
@@ -32,7 +36,7 @@ impl Gemma4VisionRunner {
         )
         .await?;
         Ok(RunnerWithRecommendedSampling {
-            inner: Gemma4VisionRunner(inner),
+            inner,
             default_sampling: SimpleSamplingParams {
                 top_p: Some(0.95f32),
                 top_k: Some(64),
