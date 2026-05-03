@@ -41,8 +41,8 @@ impl Gemma4VisionRunner {
                 top_p: Some(0.95f32),
                 top_k: Some(64),
                 temperature: Some(1.0f32),
-                presence_penalty: Some(1.5),
-                repetition_penalty: Some(1.0),
+                presence_penalty: None,
+                repetition_penalty: None,
                 seed: None,
             },
         })
